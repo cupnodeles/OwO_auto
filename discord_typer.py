@@ -1,6 +1,7 @@
 import argparse
 import ctypes
 import random
+import sys
 import time
 
 import pyautogui
@@ -8,6 +9,22 @@ import win32con
 import win32gui
 
 import discord_detector
+
+
+def _fix_stdout():
+    # Same cp1252 hazard as the browser script: Discord titles carry
+    # glyphs (⋆♱˚) the console can't encode. Never crash on them.
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
+
+def _safe(s):
+    try:
+        return str(s).encode("ascii", "replace").decode("ascii")
+    except Exception:
+        return "?"
 
 # Safety: move mouse to top-left corner to abort
 pyautogui.FAILSAFE = True
@@ -130,7 +147,7 @@ def send_one(msg, dry_run=False, keep_focus=False):
         return False
 
     print(
-        f"Discord: '{target['title'][:60]}...' "
+        f"Discord: '{_safe(target['title'][:60])}...' "
         f"box={box['method']}@({box['x']},{box['y']}) "
         f"rect={box.get('rect')} scale={box.get('scale')}"
     )
@@ -258,6 +275,7 @@ def send_one(msg, dry_run=False, keep_focus=False):
 
 
 def main():
+    _fix_stdout()
     ap = argparse.ArgumentParser(description="Auto-type into any open Discord channel.")
     ap.add_argument("--once", action="store_true", help="send wh/wb one time then exit")
     ap.add_argument("--dry-run", action="store_true", help="detect only, don't type")

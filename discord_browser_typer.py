@@ -27,6 +27,22 @@ import time
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 
+def _fix_stdout():
+    # Windows consoles (cp1252) crash on Discord's fancy glyphs (⋆♱˚).
+    # Prefer UTF-8, but never crash: replace unmappable chars.
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
+
+def _safe(s):
+    try:
+        return str(s).encode("ascii", "replace").decode("ascii")
+    except Exception:
+        return "?"
+
+
 def _channel_url():
     url = os.environ.get("DISCORD_CHANNEL_URL", "").strip()
     if not url.startswith("https://discord.com/channels/"):
@@ -125,18 +141,29 @@ def _verify_channel(page):
         except Exception:
             continue
     if want and want not in header.lower():
-        return False, f"header {header!r} lacks {want!r}"
-    return True, f"url ok + header {header[:60]!r}"
+        return False, f"header {_safe(header)!r} lacks {_safe(want)!r}"
+    return True, f"url ok + header {_safe(header[:60])!r}"
 
 
 def _launch(pw, headed):
-    ctx = pw.chromium.launch_persistent_context(
-        PROFILE_DIR,
-        headless=False,
-        viewport={"width": 1280, "height": 800},
-        args=["--disable-blink-features=AutomationControlled"],
-    )
-    return ctx
+    from playwright.sync_api import Error as PlaywrightError
+
+    try:
+        ctx = pw.chromium.launch_persistent_context(
+            PROFILE_DIR,
+            headless=False,
+            viewport={"width": 1280, "height": 800},
+            args=["--disable-blink-features=AutomationControlled"],
+        )
+        return ctx
+    except PlaywrightError as e:
+        if "existing browser session" in str(e):
+            raise SystemExit(
+                "ERROR: profile already in use — another automation window "
+                "(or a stale one from a killed run) holds .browser-profile.\n"
+                "Close it, or kill stale profile chromes, then rerun."
+            )
+        raise
 
 
 def _minimize_window():
@@ -186,7 +213,7 @@ def _open_channel(ctx):
     page.goto(_channel_url(), wait_until="domcontentloaded")
     page.wait_for_selector(TEXTBOX, timeout=60000)
     time.sleep(2.0)  # let Slate hydrate
-    print(f"Channel loaded: {page.title()[:80]}")
+    print(f"Channel loaded: {_safe(page.title()[:80])}")
     return page
 
 
@@ -200,14 +227,14 @@ def cmd_check():
         ctx = _launch(pw, headed=True)
         page = _open_channel(ctx)
         for c in _describe_boxes(page):
-            print(f"box#{c['index']} name={c['name'][:70]!r} box={c['box']} in_thread={c['in_thread']}")
+            print(f"box#{c['index']} name={_safe(c['name'][:70])!r} box={c['box']} in_thread={c['in_thread']}")
         el, err = _main_box(page)
         if el is None:
             print(f"MAIN SELECT: FAILED ({err})")
         else:
             print("MAIN SELECT: ok (widest bottom Message* box, thread panel excluded)")
         ok, detail = _verify_channel(page)
-        print(f"CHANNEL VERIFY: {'ok' if ok else 'MISMATCH'} ({detail})")
+        print(f"CHANNEL VERIFY: {'ok' if ok else 'MISMATCH'} ({_safe(detail)})")
         page.screenshot(path=CHECK_SHOT)
         print(f"Screenshot: {CHECK_SHOT} — confirm it's the OwO channel.")
         ctx.close()
@@ -216,7 +243,7 @@ def cmd_check():
 def _send(page, msg):
     ok, detail = _verify_channel(page)
     if not ok:
-        print(f"SKIP {msg}: {detail} (no keys sent)")
+        print(f"SKIP {msg}: {_safe(detail)} (no keys sent)")
         return False
     el, err = _main_box(page)
     if el is None:
@@ -266,6 +293,7 @@ def _run_loop(once):
 
 
 def main():
+    _fix_stdout()
     ap = argparse.ArgumentParser(description="Minimized-browser Discord typer.")
     ap.add_argument("--setup", action="store_true", help="one-time manual login")
     ap.add_argument("--check", action="store_true", help="load channel + screenshot, no typing")
