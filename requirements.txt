@@ -1,0 +1,6 @@
+pyautogui
+pywin32
+pywinauto
+uiautomation
+psutil
+playwright

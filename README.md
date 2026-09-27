@@ -3,6 +3,37 @@
 Sends `wh` / `wb` to your OwO farm channel on a schedule while you use your computer.
 Two senders exist — use **one at a time, never both**.
 
+## Prerequisites
+
+- Windows 10/11 with Python 3.10+ ([python.org](https://www.python.org/downloads/),
+  tick **Add python.exe to PATH** during install). Check with:
+```powershell
+python --version
+```
+- Git (to clone the repo).
+
+## Install
+
+```powershell
+git clone https://github.com/cupnodeles/OwO_auto.git
+cd OwO_auto
+pip install -r requirements.txt
+python -m playwright install chromium   # browser sender only (~150 MB)
+```
+
+What each package is for: `pyautogui` (desktop click/type), `pywin32`
+(window focus APIs), `pywinauto` + `uiautomation` (message-box detection),
+`psutil` (process checks), `playwright` + its Chromium download (browser sender).
+
+Set your channel (browser sender) — find it via right-click channel → Copy Link:
+```powershell
+setx DISCORD_CHANNEL_URL "https://discord.com/channels/<guildId>/<channelId>"
+```
+Reopen the terminal after `setx`, or export it for one session:
+```powershell
+$env:DISCORD_CHANNEL_URL = "https://discord.com/channels/<guildId>/<channelId>"
+```
+
 ## Files
 
 | File | What it does |
@@ -17,9 +48,7 @@ Fully background: minimized Chromium, DOM-level input. Your mouse, keyboard,
 and screen are 100% yours while it farms.
 
 ```powershell
-cd C:\Users\DELL\Downloads\DC
-pip install playwright
-python -m playwright install chromium
+cd OwO_auto
 
 # 1. One-time manual login (~2 min). Log in when the window opens,
 #    then press Enter in the terminal. Saves storage_state.json.
@@ -35,12 +64,7 @@ python discord_browser_typer.py --once
 # 4. Full loop: wh -> 0.6s -> wb -> random 11-19s.
 python discord_browser_typer.py
 ```
-
-Target channel: set `DISCORD_CHANNEL_URL` (right-click the channel → Copy Link):
-```
-setx DISCORD_CHANNEL_URL "https://discord.com/channels/<guildId>/<channelId>"
-```
-Reopen the terminal after `setx`, then run the commands above.
+(Reads `DISCORD_CHANNEL_URL` set in Install above.)
 
 ## Path B — Desktop-app sender
 
@@ -49,8 +73,8 @@ Discord pops to front briefly per send (~3s), then returns you to your app for
 the 11–19s gaps. Don't type in that Discord channel yourself while it runs.
 
 ```powershell
-cd C:\Users\DELL\Downloads\DC
-pip install pyautogui pywinauto pywin32 uiautomation psutil
+cd OwO_auto
+# (deps already installed via pip install -r requirements.txt above)
 
 python discord_typer.py --once --dry-run   # detect only, no typing
 python discord_typer.py --hover-test       # move mouse to box, screenshot it
