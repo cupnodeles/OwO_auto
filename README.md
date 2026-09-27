@@ -3,6 +3,20 @@
 Sends `wh` / `wb` to your OwO farm channel on a schedule while you use your computer.
 Two senders exist — use **one at a time, never both**.
 
+## UI only (no terminal commands needed after install)
+
+```powershell
+git clone https://github.com/cupnodeles/OwO_auto.git
+cd OwO_auto
+pip install -r requirements.txt
+python -m playwright install chromium
+python owo_ui.py
+```
+
+In the popup: fill **Server** + **Channel** → `Save` → `Setup` (one-time login)
+→ `Check` → `Once` → `Start`. That's the whole flow — everything else below
+is optional terminal detail.
+
 ## Prerequisites
 
 - Windows 10/11 with Python 3.10+ ([python.org](https://www.python.org/downloads/),
