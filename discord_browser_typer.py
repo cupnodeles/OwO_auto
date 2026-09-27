@@ -50,6 +50,85 @@ BETWEEN_MESSAGES_DELAY = 0.6
 TEXTBOX = 'div[role="textbox"]'
 
 
+def _expected_ids():
+    """(guild_id, channel_id) parsed from DISCORD_CHANNEL_URL."""
+    parts = _channel_url().rstrip("/").split("/")
+    return (parts[-2], parts[-1])
+
+
+def _describe_boxes(page):
+    """List every textbox candidate: name, box, in-thread-panel guess."""
+    items = []
+    loc = page.locator(TEXTBOX)
+    try:
+        n = loc.count()
+    except Exception:
+        return items
+    for i in range(n):
+        el = loc.nth(i)
+        try:
+            name = el.get_attribute("aria-label") or ""
+        except Exception:
+            name = ""
+        try:
+            bb = el.bounding_box()
+        except Exception:
+            bb = None
+        try:
+            in_aside = el.evaluate(
+                "el => !!el.closest('aside,[role=complementary],[aria-label*=Thread i]')"
+            )
+        except Exception:
+            in_aside = None
+        items.append({"index": i, "name": name, "box": bb, "in_thread": in_aside})
+    return items
+
+
+def _main_box(page):
+    """Pick the MAIN channel composer, never a thread panel's.
+
+    Rule: visible textbox whose accessible name starts with 'Message',
+    widest box in the bottom 45% of the viewport (thread panel boxes
+    are narrow, right-side). Raises SystemExit-detail via return None.
+    """
+    cands = [c for c in _describe_boxes(page) if (c["name"] or "").lower().startswith("message")]
+    cands = [c for c in cands if c["box"] and c["box"]["width"] > 200]
+    if not cands:
+        return None, "no Message* textbox found"
+    try:
+        vh = page.viewport_size["height"]
+    except Exception:
+        vh = 800
+    low = [c for c in cands if c["box"]["y"] > vh * 0.55]
+    pool = low or cands
+    # Prefer non-thread-panel candidates; fall back to widest overall.
+    main = [c for c in pool if c["in_thread"] is False]
+    pool = main or pool
+    best = max(pool, key=lambda c: c["box"]["width"])
+    return page.locator(TEXTBOX).nth(best["index"]), None
+
+
+def _verify_channel(page):
+    """Confirm we are on the expected channel. Returns (ok, detail)."""
+    _, channel_id = _expected_ids()
+    url = page.url
+    if channel_id not in url:
+        return False, f"URL drifted: {url[:100]}"
+    want = os.environ.get("DISCORD_CHANNEL_NAME", "").strip().lower()
+    header = ""
+    for sel in ["main h1", "main h2", 'header h1', '[data-list-item-id]']:
+        try:
+            t = page.locator(sel).first.inner_text(timeout=2000).strip()
+            if t:
+                header = t
+                break
+        except Exception:
+            continue
+    if want and want not in header.lower():
+        return False, f"header {header!r} lacks {want!r}"
+    return True, f"url ok + header {header[:60]!r}"
+
+
 def _launch(pw, headed):
     ctx = pw.chromium.launch_persistent_context(
         PROFILE_DIR,
@@ -120,21 +199,37 @@ def cmd_check():
     with sync_playwright() as pw:
         ctx = _launch(pw, headed=True)
         page = _open_channel(ctx)
-        box = page.locator(TEXTBOX).first
-        print(f"textbox visible={box.is_visible()} enabled={box.is_enabled()}")
+        for c in _describe_boxes(page):
+            print(f"box#{c['index']} name={c['name'][:70]!r} box={c['box']} in_thread={c['in_thread']}")
+        el, err = _main_box(page)
+        if el is None:
+            print(f"MAIN SELECT: FAILED ({err})")
+        else:
+            print("MAIN SELECT: ok (widest bottom Message* box, thread panel excluded)")
+        ok, detail = _verify_channel(page)
+        print(f"CHANNEL VERIFY: {'ok' if ok else 'MISMATCH'} ({detail})")
         page.screenshot(path=CHECK_SHOT)
         print(f"Screenshot: {CHECK_SHOT} — confirm it's the OwO channel.")
         ctx.close()
 
 
 def _send(page, msg):
-    box = page.locator(TEXTBOX).first
+    ok, detail = _verify_channel(page)
+    if not ok:
+        print(f"SKIP {msg}: {detail} (no keys sent)")
+        return False
+    el, err = _main_box(page)
+    if el is None:
+        print(f"SKIP {msg}: {err} (no keys sent)")
+        return False
+    box = el
     box.scroll_into_view_if_needed()
     box.click()  # DOM click, no system mouse involved
     box.press_sequentially(msg, delay=60)
     time.sleep(0.4)
     box.press("Enter")
     print(f"Sent: {msg}", flush=True)
+    return True
 
 
 def _run_loop(once):
