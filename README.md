@@ -41,6 +41,20 @@ $env:DISCORD_CHANNEL_URL = "https://discord.com/channels/<guildId>/<channelId>"
 | `discord_typer.py` | Desktop-app sender (focus-borrow, human-speed typing) |
 | `discord_detector.py` | Finds the Discord window + message box, focus/gate helpers |
 | `discord_browser_typer.py` | Minimized-browser sender (zero shared mouse/keys, recommended for full PC use) |
+| `owo_ui.py` | 🐄 OwO-styled popup: server/channel/commands config + Start/Stop (no terminal needed) |
+
+## Control panel (easiest)
+
+```powershell
+cd OwO_auto
+python owo_ui.py
+```
+
+Fill **Server** (guild ID or `discord.gg/xxx` invite), **Channel** (ID),
+edit **Commands** (default `wh`, `wb` — Add/Remove/Up/Down), tune delays,
+then `Save` → `Setup` (one-time login) → `Check` → `Once` → `Start`.
+Logs stream inside the popup; `Stop` ends the run. Settings save to
+`config.json` (local, gitignored — IDs never touch git).
 
 ## Path A — Browser sender (recommended)
 

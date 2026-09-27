@@ -42,10 +42,10 @@ PROFILE_DIR = os.path.join(HERE, ".browser-profile")
 STORAGE_FILE = os.path.join(HERE, "storage_state.json")
 CHECK_SHOT = os.path.join(HERE, "channel_check.png")
 
-MESSAGES = ["wh", "wb"]
-MIN_DELAY = 11
-MAX_DELAY = 19
-BETWEEN_MESSAGES_DELAY = 0.6
+MESSAGES = [c for c in os.environ.get("OWO_COMMANDS", "wh,wb").split(",") if c.strip()] or ["wh", "wb"]
+MIN_DELAY = float(os.environ.get("OWO_MIN_DELAY", "11"))
+MAX_DELAY = float(os.environ.get("OWO_MAX_DELAY", "19"))
+BETWEEN_MESSAGES_DELAY = float(os.environ.get("OWO_GAP", "0.6"))
 
 TEXTBOX = 'div[role="textbox"]'
 

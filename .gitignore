@@ -3,3 +3,4 @@ __pycache__/
 .browser-profile/
 storage_state.json
 channel_check.png
+config.json
